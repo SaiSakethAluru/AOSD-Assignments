@@ -42,7 +42,7 @@ static heap heap_obj;
 
 static int heap_init(void)
 {
-    printk(KERN_ALERT "Initialisation of heap module started");
+    printk(KERN_ALERT "Initialisation of heap module started\n");
     struct proc_dir_entry *entry = proc_create("partb_1_16CS30030", 0, NULL, &file_ops);
     heap_obj.type = 0;
     heap_obj.size = 0;
@@ -50,37 +50,37 @@ static int heap_init(void)
     heap_obj.init = 0;
     heap_obj.arr = NULL;
     if(entry==NULL) {
-        printk(KERN_ALERT "Error in creating proc entry");
+        printk(KERN_ALERT "Error in creating proc entry\n");
         return -ENOENT;
     }
     file_ops.owner = THIS_MODULE; 
     file_ops.write = write;
     file_ops.read = read;
-    printk(KERN_ALERT "Initialisation of heap module done");
+    printk(KERN_ALERT "Initialisation of heap module done\n");
     return 0;
 }
 
 static void heap_exit(void)
 {
-    printk(KERN_ALERT "Removing heap module");
+    printk(KERN_ALERT "Removing heap module\n");
     heap_obj.type = 0;
     heap_obj.size = 0;
     heap_obj.max_size = 0;
     kfree(heap_obj.arr);
     remove_proc_entry("partb_1_16CS30030",NULL);
-    printk(KERN_ALERT "Removal of module done");
+    printk(KERN_ALERT "Removal of module done\n");
 }
 
 static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *pos) { 
     int value;
     int valid = kstrtoint(buf,0,&value);
     if(!valid) {
-        printk(KERN_ALERT "Invalid argument passed to write, %d",valid);
+        printk(KERN_ALERT "Invalid argument passed to write, %d\n",valid);
         return -EINVAL;
     }
     if(heap_obj.init==0){
         if(value!=0xFF && value!=0xF0){
-            printk(KERN_ALERT "First input to heap should be 0xFF or 0xF0, received %d",value);
+            printk(KERN_ALERT "First input to heap should be 0xFF or 0xF0, received %d\n",value);
             return -EINVAL;
         }
         else{
@@ -98,7 +98,7 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
         if(value<1 || value > 100){
             heap_obj.init = 0;
             heap_obj.type = 0;
-            printk(KERN_ALERT "Size of heap is out of bounds, received %d",value);
+            printk(KERN_ALERT "Size of heap is out of bounds, received %d\n",value);
             return -EINVAL;
         }
         else{
@@ -110,12 +110,12 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
     }
     else{
         if(heap_obj.size<heap_obj.max_size){
-            printk(KERN_ALERT "inserting %d into heap",value);
+            printk(KERN_ALERT "inserting %d into heap\n",value);
             heap_insert(value);
             return count;
         }
         else{
-            printk(KERN_ALERT "Heap is full, currently there are %d elements",heap_obj.size);
+            printk(KERN_ALERT "Heap is full, currently there are %d elements\n",heap_obj.size);
             return -EACCES;
         }
     }
@@ -123,16 +123,16 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
 
 static ssize_t read(struct file *file, char *buf, size_t count, loff_t *pos) {
     if(heap_obj.init != 2){
-        printk(KERN_ALERT "Reading from heap without initialising");
+        printk(KERN_ALERT "Reading from heap without initialising\n");
         return -1;
     }
     if(heap_obj.size==0){
-        printk(KERN_ALERT "Reading from empty heap");
+        printk(KERN_ALERT "Reading from empty heap\n");
         return -EACCES;
     }
     int value = heap_pop();
     if(copy_to_user(buf,&value,sizeof(value))){
-        printk(KERN_ALERT "Copy to buffer failed");
+        printk(KERN_ALERT "Copy to buffer failed\n");
         return -1;
     }
     return sizeof(value);
