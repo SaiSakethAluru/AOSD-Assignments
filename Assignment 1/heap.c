@@ -75,12 +75,12 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
     int value;
     int valid = kstrtoint(buf,0,&value);
     if(!valid) {
-        printk(KERN_ALERT "Invalid argument passed to write, %d\n",valid);
+        printk(KERN_ALERT "Invalid argument passed to write, %s %d\n",buf, value);
         return -EINVAL;
     }
     if(heap_obj.init==0){
         if(value!=0xFF && value!=0xF0){
-            printk(KERN_ALERT "First input to heap should be 0xFF or 0xF0, received %d\n",value);
+            printk(KERN_ALERT "First input to heap should be 0xFF or 0xF0, received %s %d\n",buf, value);
             return -EINVAL;
         }
         else{
