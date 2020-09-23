@@ -43,21 +43,31 @@ static heap heap_obj;
 static int heap_init(void)
 {
     printk(KERN_ALERT "Initialisation of heap module started");
+    struct proc_dir_entry *entry = proc_create("partb_1_16CS30030", 0, NULL, &file_ops);
     heap_obj.type = 0;
     heap_obj.size = 0;
     heap_obj.max_size = 0;
     heap_obj.init = 0;
     heap_obj.arr = NULL;
-    struct proc_dir_entry *entry = proc_create("partb_1_16CS30030", 0, NULL, &file_ops);
     if(!entry) return -ENOENT;
     file_ops.owner = THIS_MODULE; 
     file_ops.write = write;
     file_ops.read = read;
     printk(KERN_ALERT "Initialisation of heap module done");
+    return 0;
+}
+
+static void heap_exit(void)
+{
+    printk(KERN_ALERT "Removing heap module");
+    heap_obj.type = 0;
+    heap_obj.size = 0;
+    heap_obj.max_size = 0;
+    kfree(heap_obj.arr);
+    remove_proc_entry("partb_1_16CS30030",NULL);
 }
 
 static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *pos) { 
-    // printk("%.*s", count, buf);
     int value;
     int valid = kstrtoint(buf,0,&value);
     if(!valid) return -EINVAL;
@@ -169,4 +179,5 @@ static void heap_insert(int value)
     }
 }
 
-
+module_init(heap_init);
+module_exit(heap_exit);
