@@ -49,7 +49,8 @@ static int heap_init(void)
     heap_obj.max_size = 0;
     heap_obj.init = 0;
     heap_obj.arr = NULL;
-    if(!entry) return -ENOENT;
+    if(entry==NULL) 
+        return -ENOENT;
     file_ops.owner = THIS_MODULE; 
     file_ops.write = write;
     file_ops.read = read;
@@ -65,6 +66,7 @@ static void heap_exit(void)
     heap_obj.max_size = 0;
     kfree(heap_obj.arr);
     remove_proc_entry("partb_1_16CS30030",NULL);
+    printk(KERN_ALERT "Removal of module done");
 }
 
 static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *pos) { 
