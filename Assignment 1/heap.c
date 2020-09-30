@@ -15,6 +15,9 @@ static void heap_insert(int value);
 
 static struct file_operations file_ops;
 
+static char buffer[256] = {0};
+static int buffer_len = 0;
+
 static int lchild(int i)
 {
     return 2*i+1;
@@ -42,7 +45,7 @@ static heap heap_obj;
 
 static int heap_init(void)
 {
-    printk(KERN_ALERT "Initialisation of heap module started\n");
+    printk(KERN_INFO "Initialisation of heap module started\n");
     struct proc_dir_entry *entry = proc_create("partb_1_16CS30030", 0, NULL, &file_ops);
     heap_obj.type = 0;
     heap_obj.size = 0;
@@ -56,31 +59,35 @@ static int heap_init(void)
     file_ops.owner = THIS_MODULE; 
     file_ops.write = write;
     file_ops.read = read;
-    printk(KERN_ALERT "Initialisation of heap module done\n");
+    printk(KERN_INFO "Initialisation of heap module done\n");
     return 0;
 }
 
 static void heap_exit(void)
 {
-    printk(KERN_ALERT "Removing heap module\n");
+    printk(KERN_INFO "Removing heap module\n");
     heap_obj.type = 0;
     heap_obj.size = 0;
     heap_obj.max_size = 0;
     kfree(heap_obj.arr);
     remove_proc_entry("partb_1_16CS30030",NULL);
-    printk(KERN_ALERT "Removal of module done\n");
+    printk(KERN_INFO "Removal of module done\n");
 }
 
 static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *pos) { 
     int value;
-    int valid = kstrtoint(buf,0,&value);
-    if(!valid) {
-        printk(KERN_ALERT "Invalid argument passed to write, %s %d\n",buf, value);
+    memcpy(buffer,buf,count);
+    buffer[count] = '\0';
+    
+    int valid = kstrtoint(buffer,0,&value);
+    if(valid!=0) {
+        printk(KERN_ALERT "Invalid argument passed to write, %s, %ld, %d\n",buffer, count, value);
+        printk(KERN_INFO "Value received = %d\n",valid);
         return -EINVAL;
     }
     if(heap_obj.init==0){
         if(value!=0xFF && value!=0xF0){
-            printk(KERN_ALERT "First input to heap should be 0xFF or 0xF0, received %s %d\n",buf, value);
+            printk(KERN_ALERT "First input to heap should be 0xFF or 0xF0, received %s, %ld, %d\n",buffer, count, value);
             return -EINVAL;
         }
         else{
@@ -110,8 +117,10 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
     }
     else{
         if(heap_obj.size<heap_obj.max_size){
-            printk(KERN_ALERT "inserting %d into heap\n",value);
+            printk(KERN_INFO "inserting %d into heap\n",value);
+            heap_obj.size++;
             heap_insert(value);
+            printk(KERN_INFO "Heap size = %d\n",heap_obj.size);
             return count;
         }
         else{
@@ -122,6 +131,8 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
 }
 
 static ssize_t read(struct file *file, char *buf, size_t count, loff_t *pos) {
+    printk(KERN_INFO "Heap init status: %d, Heap size: %d\n",heap_obj.init,heap_obj.size);
+    printk(KERN_INFO "Attempting to read count: %ld\n",count);
     if(heap_obj.init != 2){
         printk(KERN_ALERT "Reading from heap without initialising\n");
         return -1;
@@ -131,7 +142,7 @@ static ssize_t read(struct file *file, char *buf, size_t count, loff_t *pos) {
         return -EACCES;
     }
     int value = heap_pop();
-    if(copy_to_user(buf,&value,sizeof(value))){
+    if(copy_to_user(buf,&value,sizeof(value))!=0){
         printk(KERN_ALERT "Copy to buffer failed\n");
         return -1;
     }
@@ -175,8 +186,7 @@ static int heap_pop(void)
 }
 static void heap_insert(int value)
 {
-    int i = heap_obj.size;
-    heap_obj.size++;
+    int i = heap_obj.size-1;
     if(heap_obj.type==1){
         while(i>0 && value < heap_obj.arr[parent(i)]){
             heap_obj.arr[i] = heap_obj.arr[parent(i)];
