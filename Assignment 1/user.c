@@ -68,6 +68,7 @@ int main()
     status = ioctl(fd,PB2_EXTRACT, (struct result*)&res);
     printf("Extracted %d, size %d, status: %d\n",res.result,res.heap_size,status);
     int temp;
+    printf("Enter some random number, will be discarded: ");
     scanf("%d",&temp);
     value = 12;
     status = ioctl(fd,PB2_INSERT,(int*)&value);
@@ -77,7 +78,6 @@ int main()
     print_heap_info(info);
     status = ioctl(fd,PB2_EXTRACT, (struct result*)&res);
     printf("Extracted %d, size %d, status: %d\n",res.result,res.heap_size,status);
-    printf("Enter some random number, will be discarded: ");
     close(fd);
     return 0;
 }

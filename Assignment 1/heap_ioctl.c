@@ -5,12 +5,17 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
+// #include <linux/mutex.h>
 
 #define PB2_SET_TYPE _IOW(0x10, 0x31, int32_t *)
 #define PB2_INSERT _IOW(0x10, 0x32, int32_t *)
 #define PB2_GET_INFO _IOR(0x10, 0x33, int32_t *)
 #define PB2_EXTRACT _IOR(0x10, 0x34, int32_t *)
 #define PERMS 0666
+
+MODULE_LICENSE("GPL");
+
+// static DEFINE_MUTEX(mutex_lock_var);
 
 struct pb2_set_type_arguments
 {
@@ -32,7 +37,6 @@ struct result
     int32_t heap_size;
 };
 
-MODULE_LICENSE("GPL");
 
 static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *pos);
 static ssize_t read(struct file *file, char *buf, size_t count, loff_t *pos);
@@ -77,6 +81,10 @@ static int heap_obj_arr_size = 0;
 
 static int open(struct inode *inode, struct file* file)
 {
+    if(heap_obj_arr_size >= heap_obj_arr_maxsize){
+        heap_obj_arr_maxsize *= 2;
+        heap_obj_arr = (heap*) krealloc(heap_obj_arr,heap_obj_arr_maxsize * sizeof(heap),GFP_KERNEL);
+    }
     if(heap_obj_arr_size<heap_obj_arr_maxsize){
         heap_obj_arr[heap_obj_arr_size].type=0;
         heap_obj_arr[heap_obj_arr_size].size=0;
@@ -100,7 +108,7 @@ static int close(struct inode *inode,struct file* file)
             break;
         }
     }   
-    if(heap_obj_arr_size > 1){
+    if(heap_obj_arr_size > 1 && index != heap_obj_arr_size-1){
         heap_obj_arr_size--;
         heap_obj_arr[index].type = heap_obj_arr[heap_obj_arr_size].type;
         heap_obj_arr[index].size = heap_obj_arr[heap_obj_arr_size].size;
@@ -203,6 +211,7 @@ static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static int heap_init(void)
 {
     printk(KERN_INFO "Initialisation of heap module started\n");
+    // mutex_init(&mutex_lock_var);
     struct proc_dir_entry *entry = proc_create("partb_2_16CS30030", PERMS, NULL, &file_ops);
     heap_obj_arr = (heap*) kmalloc(heap_obj_arr_maxsize * sizeof(heap),GFP_KERNEL);
     if (entry == NULL)
@@ -223,7 +232,16 @@ static int heap_init(void)
 static void heap_exit(void)
 {
     printk(KERN_INFO "Removing heap module\n");
+    int i;
+    // mutex_lock(&mutex_lock_var);
+    for(i=0;i<heap_obj_arr_size;i++){
+        if(heap_obj_arr[i].arr != NULL){
+            kfree(heap_obj_arr[i].arr);
+        }
+    }
     kfree(heap_obj_arr);
+    // mutex_unlock(&mutex_lock_var);
+    // mutex_destroy(&mutex_lock_var);
     remove_proc_entry("partb_2_16CS30030", NULL);
     printk(KERN_INFO "Removal of module done\n");
 }
@@ -246,9 +264,7 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
             return -EINVAL;
         }
         type = buf[0];
-        // memcpy(&type,&buf[0],1);
         size = buf[1];
-        // memcpy(&size,&buf[1],1);
         if(type != (char)0xff && type != (char)0xf0){
             printk(KERN_ALERT "First input to heap should be 0xFF or 0xF0, received %d\n",(unsigned int)type);
             return -EINVAL;
