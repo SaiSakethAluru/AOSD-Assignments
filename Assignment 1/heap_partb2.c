@@ -1,3 +1,10 @@
+/*
+Team details:
+1. Sai Saketh Aluru - 16CS30030
+2. G Chandan Ritvik - 16CS30010
+Kernel version - Ubuntu 18.04 with linux-5.2.6 kernel version
+*/
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
@@ -5,7 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
-// #include <linux/mutex.h>
+#include <linux/mutex.h>
 
 #define PB2_SET_TYPE _IOW(0x10, 0x31, int32_t *)
 #define PB2_INSERT _IOW(0x10, 0x32, int32_t *)
@@ -15,7 +22,7 @@
 
 MODULE_LICENSE("GPL");
 
-// static DEFINE_MUTEX(mutex_lock_var);
+static DEFINE_MUTEX(mutex_lock_var);
 
 struct pb2_set_type_arguments
 {
@@ -45,9 +52,6 @@ static int heap_pop(int index);
 static void heap_insert(int value,int index);
 
 static struct file_operations file_ops;
-
-static char buffer[256] = {0};
-static int buffer_len = 0;
 
 static int lchild(int i)
 {
@@ -81,6 +85,15 @@ static int heap_obj_arr_size = 0;
 
 static int open(struct inode *inode, struct file* file)
 {
+    int i;
+    mutex_lock(&mutex_lock_var);
+    for(i=0;i<heap_obj_arr_size;i++){
+        if(current->pid == heap_obj_arr[i].pid){
+            printk(KERN_ALERT "The user process already has opened the heap module file once. Can't open again before closing\n");
+            mutex_unlock(&mutex_lock_var);
+            return -1;
+        }
+    }
     if(heap_obj_arr_size >= heap_obj_arr_maxsize){
         heap_obj_arr_maxsize *= 2;
         heap_obj_arr = (heap*) krealloc(heap_obj_arr,heap_obj_arr_maxsize * sizeof(heap),GFP_KERNEL);
@@ -94,14 +107,17 @@ static int open(struct inode *inode, struct file* file)
         heap_obj_arr[heap_obj_arr_size].arr=NULL;
         heap_obj_arr[heap_obj_arr_size].pid=current->pid;
         heap_obj_arr_size++;
+        mutex_unlock(&mutex_lock_var);
         return 0;
     }
+    mutex_unlock(&mutex_lock_var);
     return -1;
 }
 
 static int close(struct inode *inode,struct file* file)
 {
     int index,i;
+    mutex_lock(&mutex_lock_var);
     for(i=0;i<heap_obj_arr_size;i++){
         if(current->pid == heap_obj_arr[i].pid){
             index=i;
@@ -130,6 +146,7 @@ static int close(struct inode *inode,struct file* file)
             kfree(heap_obj_arr[index].arr);
         }
     }
+    mutex_unlock(&mutex_lock_var);
     return 0;
 }
 
@@ -211,7 +228,7 @@ static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static int heap_init(void)
 {
     printk(KERN_INFO "Initialisation of heap module started\n");
-    // mutex_init(&mutex_lock_var);
+    mutex_init(&mutex_lock_var);
     struct proc_dir_entry *entry = proc_create("partb_2_16CS30030", PERMS, NULL, &file_ops);
     heap_obj_arr = (heap*) kmalloc(heap_obj_arr_maxsize * sizeof(heap),GFP_KERNEL);
     if (entry == NULL)
@@ -233,15 +250,15 @@ static void heap_exit(void)
 {
     printk(KERN_INFO "Removing heap module\n");
     int i;
-    // mutex_lock(&mutex_lock_var);
+    mutex_lock(&mutex_lock_var);
     for(i=0;i<heap_obj_arr_size;i++){
         if(heap_obj_arr[i].arr != NULL){
             kfree(heap_obj_arr[i].arr);
         }
     }
     kfree(heap_obj_arr);
-    // mutex_unlock(&mutex_lock_var);
-    // mutex_destroy(&mutex_lock_var);
+    mutex_unlock(&mutex_lock_var);
+    mutex_destroy(&mutex_lock_var);
     remove_proc_entry("partb_2_16CS30030", NULL);
     printk(KERN_INFO "Removal of module done\n");
 }
